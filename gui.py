@@ -199,11 +199,11 @@ class GUI:
             data["conversation_id"] = self.conversation_id
         response = requests.post(self.url, headers=self.headers, data=json.dumps(data))
         if response.status_code == 200:
-            code = json.loads(response.text)["response"]
-            code = code.replace("```", "")
+            output = json.loads(response.text)["response"]
+            output = output.replace("```", "")
             self.context_window.extend(json.loads(response.text)["context"])
             self.output_box.config(state=tk.NORMAL)
-            self.output_box.insert("1.0", code)
+            self.output_box.insert("1.0", output)
             self.end_time = time.time()  # End translation timer
             self.time_label.config(text="Translation Time (Seconds): " + str((self.end_time - self.start_time)))
             self.calculate_bleu()
