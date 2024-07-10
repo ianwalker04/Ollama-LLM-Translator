@@ -1,9 +1,8 @@
 from gui import *
-from gui2 import *
 
 
 def main():
-    GUI2()
+    GUI()
 
 
 if __name__ == '__main__':

@@ -1,4 +1,3 @@
-import string
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import filedialog
@@ -9,20 +8,18 @@ import threading
 import subprocess
 import re
 import time
-from nltk.translate.bleu_score import sentence_bleu
+from sacrebleu import sentence_bleu as bleu
 
 
-def all_tokens_from(text: str) -> List[str]:
-    # Get all tokens from a piece of text and return them as a list
-    tokens = []
-    text = text.translate(str.maketrans('', '', string.punctuation)).lower().split()
-    for token in text:
-        if '\n' in token:
-            subtokens = token.split('\n')
-            tokens.extend(filter(bool, subtokens))
-        else:
-            tokens.append(token)
-    return tokens
+def is_cjk(text: str):
+    # Detects if language is in Chinese, Japanese, Korean, or none
+    if re.search("[\u4e00-\u9FFF]", text):
+        return "ZH"
+    if re.search("[\u3040-\u30ff]", text):
+        return "JA"
+    if re.search("[\uac00-\ud7a3]", text):
+        return "KO"
+    return None
 
 
 def get_models() -> List[str]:
@@ -41,7 +38,7 @@ class GUI:
 
         # Main GUI elements
         self.root = tk.Tk()
-        self.root.geometry("800x650")
+        self.root.geometry("1000x650")
         self.root.title("Ollama LLM Translator")
 
         tk.Label(self.root, text="Ollama LLM Translator", font=("Times New Roman", 18)).pack(padx=20, pady=10)
@@ -56,7 +53,8 @@ class GUI:
         self.option_menu.pack(padx=1, pady=1, side="left")
         self.option_menu.config(indicatoron=False, font=("Times New Roman", 8))
 
-        self.import_bleu_button = tk.Button(self.parameter_frame, text="Import References (BLEU)", font=("Times New Roman", 8),
+        self.import_bleu_button = tk.Button(self.parameter_frame, text="Import References (BLEU)", font=("Times New "
+                                                                                                         "Roman", 8),
                                             command=self.import_bleu)
         self.import_bleu_button.pack(padx=1, pady=1, side="left")
         self.clear_bleu_button = tk.Button(self.parameter_frame, text="Clear References (BLEU)", font=("Times New Roman", 8),
@@ -94,13 +92,20 @@ class GUI:
         self.output_box.pack(padx=10, pady=10)
 
         # Time/BLEU label GUI elements
-        self.time_label = tk.Label(self.root, text="Translation Time (Seconds): N/A", font=("Times New Roman", 10))
-        self.time_label.pack()
+        self.stats_frame = tk.Frame(self.root)
+        self.stats_frame.pack()
+
+        self.time_label = tk.Label(self.stats_frame, text="Translation Time (Seconds): N/A", font=("Times New Roman", 10))
+        self.time_label.pack(side="left")
         self.start_time = 0
         self.end_time = 0
 
-        self.bleu_label = tk.Label(self.root, text="BLEU Score: N/A", font=("Times New Roman", 12))
-        self.bleu_label.pack()
+        self.bleu_label = tk.Label(self.stats_frame, text="BLEU Score: N/A", font=("Times New Roman", 12))
+        self.bleu_label.pack(side="bottom")
+
+        self.recalculate_bleu_button = tk.Button(self.stats_frame, text="Recalculate BLEU", font=("Times New Roman", 10),
+                                                 command=self.calculate_bleu)
+        self.recalculate_bleu_button.pack(side="right", padx=10)
 
         # API variables
         self.context_window = []
@@ -115,8 +120,8 @@ class GUI:
     def import_bleu(self) -> None:
         # Ask user to import a .txt file and add it to a list of reference texts
         file_path = filedialog.askopenfilename(filetypes=[("TXT Files", "*.txt")])
-        file = open(file_path, "r")
-        self.references.append(all_tokens_from(file.read()))
+        file = open(file_path, "r", encoding="utf-8")
+        self.references.append(file.read())
         file.close()
         messagebox.showinfo(title="Files Imported", message="Text files successfully imported.")
 
@@ -139,11 +144,13 @@ class GUI:
         self.output_box.delete("1.0", tk.END)
         [widget.config(state=tk.DISABLED) for widget in self.parameter_frame.winfo_children()]
         [widget.config(state=tk.DISABLED) for widget in self.main_frame.winfo_children()]
+        self.recalculate_bleu_button.config(state=tk.DISABLED)
         self.start_time = time.time()  # Begin translation timer
         threading.Thread(target=self.api_call, daemon=True).start()
 
     def display_bleu(self, score: float) -> None:
         # Update BLEU score label with appropriate score and color
+        score = score / 100
         self.bleu_label.config(text="BLEU Score: " + str(score))
         if 0 <= score < 0.1:
             self.bleu_label.config(fg="red4")
@@ -158,15 +165,34 @@ class GUI:
         else:
             self.bleu_label.config(fg="green4")
 
+    def calculate_bleu(self) -> None:
+        # If there is text and references, calculate the BLEU score with the appropriate tokenizer
+        text = self.output_box.get("1.0", tk.END)
+        if text and self.references:
+            if is_cjk(text) == "ZH":
+                self.display_bleu(bleu(text, self.references, tokenize="zh").score)
+            elif is_cjk(text) == "JA":
+                self.display_bleu(bleu(text, self.references, tokenize="ja-mecab").score)
+            elif is_cjk(text) == "KO":
+                self.display_bleu(bleu(text, self.references, tokenize="ko-mecab").score)
+            else:
+                self.display_bleu(bleu(text, self.references).score)
+        else:
+            self.bleu_label.config(text="BLEU Score: N/A", fg="black")
+
     def api_call(self) -> None:
         # Perform API call and display result in the output box
         data = {"model": self.option_value.get(),
                 "prompt": self.prompt_box.get("1.0", tk.END) + self.input_box.get("1.0", tk.END),
                 "stream": False,
                 "context": self.context_window,
-                "system": "You are an expert translator who translates text that the user gives you into a language of their choosing."
-                          "When translating text, DO NOT add any additional comments, explanations, or pronunciations. This includes quotes explanations of the translations, parentheticals, etc. Just give the translated text."
-                          "Unless prompted otherwise, do not give multiple translations for a text. Just give one translation.",
+                "system": "You are an expert translator who translates text that the user gives you into a language "
+                          "of their choosing."
+                          "When translating text, DO NOT add any additional comments, explanations, "
+                          "or pronunciations. This includes quotes explanations of the translations, parentheticals, "
+                          "etc. Just give the translated text."
+                          "Unless prompted otherwise, do not give multiple translations for a text. Just give one "
+                          "translation.",
                 "options": {"temperature": float(self.temp_input.get()), "top_k": int(self.top_k_input.get()),
                             "top_p": float(self.top_p_input.get())}}
         if self.conversation_id:
@@ -180,12 +206,10 @@ class GUI:
             self.output_box.insert("1.0", code)
             self.end_time = time.time()  # End translation timer
             self.time_label.config(text="Translation Time (Seconds): " + str((self.end_time - self.start_time)))
-            if self.references:
-                self.display_bleu(sentence_bleu(self.references, all_tokens_from(code)))
-            else:
-                self.bleu_label.config(text="BLEU Score: N/A", fg="black")
+            self.calculate_bleu()
         else:
             messagebox.showinfo(title="API Error",
                                 message="API Error: " + str(response.status_code) + ". " + response.text)
         [widget.config(state=tk.NORMAL) for widget in self.parameter_frame.winfo_children()]
         [widget.config(state=tk.NORMAL) for widget in self.main_frame.winfo_children()]
+        self.recalculate_bleu_button.config(state=tk.NORMAL)
