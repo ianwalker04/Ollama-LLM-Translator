@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.10 (LLM Translator)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (LLM Translator)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (Ollama-LLM-Translator)" project-jdk-type="Python SDK" />
 </project>
