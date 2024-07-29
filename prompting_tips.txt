@@ -1,0 +1,5 @@
+- In general, the most effective thing to improve translation is to give as much context as possible to the model.
+- If there are characters or otherwise people with names present, it might be a good idea to point that out along with their gender.
+- If translating in a language where the language changes significantly based on the tense, it is a good idea to identify the desired tense of the passage.
+- Machine translations will often make a passage shorter or longer in an attempt to get a translation that is “close enough” to the original. If so, prompt while designating the general length that you desire in the translation.
+- Say you’re translating a children’s book. Sometimes, the model will output a translation that feels more complicated than it should be, given the simple language of the original. It can be good to point this out.
