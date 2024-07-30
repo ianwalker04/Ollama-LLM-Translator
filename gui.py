@@ -199,6 +199,7 @@ class GUI:
             self.bleu_label.config(fg="green4")
         with open("transcript.txt", "a") as transcript:
             transcript.write("BLEU: " + str(score) + "\n\n")
+        transcript.close()
 
     def calculate_bleu(self) -> None:
         # If there is text and references, calculate the BLEU score with the appropriate tokenizer
@@ -216,6 +217,7 @@ class GUI:
             self.bleu_label.config(text="BLEU Score: N/A", fg="black")
             with open("transcript.txt", "a") as transcript:
                 transcript.write("BLEU: N/A" + "\n\n")
+            transcript.close()
 
     def api_call(self) -> None:
         # Perform API call and display result in the output box
@@ -248,6 +250,7 @@ class GUI:
                                   "Input: " + self.input_box.get("1.0", tk.END) +
                                   "Prompt: " + self.prompt_box.get("1.0", tk.END) + "Time (Seconds): " +
                                   str(self.end_time - self.start_time) + "\n"))
+            transcript.close()
             self.calculate_bleu()
         else:
             messagebox.showinfo(title="API Error",
