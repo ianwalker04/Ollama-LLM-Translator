@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import filedialog
 from typing import List
+from typing import Optional
 import requests
 import json
 import threading
@@ -11,7 +12,7 @@ import time
 from sacrebleu import sentence_bleu as bleu
 
 
-def is_cjk(text: str):
+def is_cjk(text: str) -> Optional[str]:
     # Detects if language is in Chinese, Japanese, Korean, or none
     if re.search("[\u4e00-\u9FFF]", text):
         return "ZH"
@@ -31,17 +32,19 @@ def get_models() -> List[str]:
 
 def show_prompting_tips() -> None:
     # Display a messagebox containing prompting tips
-    messagebox.showinfo(title="Prompting Tips", message=open("prompting_tips.txt", "r", encoding="utf-8").read())
-    open("prompting_tips.txt", "r").close()
+    prompting_tips = open("prompting_tips.txt", "r", encoding="utf-8")
+    messagebox.showinfo(title="Prompting Tips", message=prompting_tips.read())
+    prompting_tips.close()
 
 
 def download_transcript() -> None:
     # Download a TXT file of the transcript
     file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
+    transcript = open("transcript.txt", "r", encoding="utf-8")
     if file_path:
         with open(file_path, "w", encoding="utf-8") as file:
-            file.write(open("transcript.txt", "r", encoding="utf-8").read())
-    open("transcript.txt", "r", encoding="utf-8").close()
+            file.write(transcript.read())
+    transcript.close()
 
 
 class GUI:
@@ -55,7 +58,7 @@ class GUI:
 
         # Main GUI elements
         self.root = tk.Tk()
-        self.root.geometry("1000x650")
+        self.root.geometry("1100x650")
         self.root.title("Ollama LLM Translator")
 
         tk.Label(self.root, text="Ollama LLM Translator", font=("Times New Roman", 18)).pack(padx=20, pady=10)
@@ -242,6 +245,7 @@ class GUI:
             self.time_label.config(text="Translation Time (Seconds): " + str(self.end_time - self.start_time))
             with open("transcript.txt", "a", encoding="utf-8") as transcript:
                 transcript.write(("Output: " + output + "\n" + "Model: " + self.option_value.get() + "\n" +
+                                  "Input: " + self.input_box.get("1.0", tk.END) +
                                   "Prompt: " + self.prompt_box.get("1.0", tk.END) + "Time (Seconds): " +
                                   str(self.end_time - self.start_time) + "\n"))
             self.calculate_bleu()
